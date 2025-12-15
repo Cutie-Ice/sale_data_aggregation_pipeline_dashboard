@@ -32,39 +32,54 @@ def map_record_to_db_schema(record):
         
     return db_record
 
+# Wears / Clothing Items (Same as transaction.py)
+WEARS = [
+    "Classic White T-Shirt", "Slim Fit Denim Jeans", "Oversized Hoodie", "Running Sneakers", 
+    "Leather Biker Jacket", "Baseball Cap", "Cotton Crew Socks", "Cargo Shorts", 
+    "Summer Floral Dress", "Wool Knit Sweater", "Ankle Boots", "Silk Scarf",
+    "Puffer Jacket", "Yoga Leggings", "Formal Blazer", "Chino Pants",
+    "Maxi Skirt", "Aviator Sunglasses", "Leather Belt", "Beanie Hat"
+]
+
 def initialize_db_if_empty(supabase):
-    """Checks if table is empty and seeds it if necessary."""
+    """Checks if table is empty and seeds it. Also fixes generic names if found."""
     try:
-        # Check count using a known column to avoid errors
-        # 'region' worked in our probe
-        response = supabase.table(TABLE_NAME).select("region", count="exact").limit(1).execute()
-        count = response.count
+        # Check if we need to fix generic names (Product 1, Product 2...)
+        # We check TransactionID 1. If it exists and ProductID is 'Product 0', we overwrite the seed data.
+        response = supabase.table(TABLE_NAME).select("*").eq("TransactionID", 1).limit(1).execute()
         
-        if count is not None and count > 0:
-            return # Already has data
+        need_reseed = False
+        if not response.data:
+            print("Database is empty. Seeding...")
+            need_reseed = True
+        else:
+            first_product = response.data[0].get('product_id') or response.data[0].get('ProductID')
+            if first_product and str(first_product).startswith("Product "):
+                print("Found generic product names. Overwriting with real names...")
+                need_reseed = True
+                
+        if need_reseed:
+            initial_data = []
+            for i in range(50): 
+                # Create Pascal Record
+                record = {
+                    'TransactionID': i + 1,
+                    # Spread out dates
+                    'Timestamp': (datetime.now() - timedelta(minutes=50-i)).strftime('%Y-%m-%d %H:%M:%S'),
+                    # Use REAL name
+                    'ProductID': WEARS[i % len(WEARS)],
+                    'Quantity': random.randint(1, 5),
+                    'PricePerUnit': 50.0,
+                    'TotalPrice': random.randint(1, 5) * 50.0,
+                    'Region': random.choice(['North', 'South', 'East', 'West']),
+                    'Channel': 'Webstore'
+                }
+                # Convert to DB Schema
+                initial_data.append(map_record_to_db_schema(record))
+                
+            supabase.table(TABLE_NAME).upsert(initial_data).execute()
+            print("Seeding/Fix complete.")
             
-        print("Database is empty. Seeding initial data...")
-        initial_data = []
-        for i in range(50): 
-            # Create Pascal Record
-            record = {
-                'TransactionID': i + 1,
-                'Timestamp': (datetime.now() - timedelta(minutes=50-i)).strftime('%Y-%m-%d %H:%M:%S'),
-                'ProductID': f"Product {i}", 
-                'Quantity': random.randint(1, 5),
-                'PricePerUnit': 50.0,
-                'CostPerUnit': 30.0,
-                'TotalPrice': random.randint(1, 5) * 50.0,
-                'TotalCost': random.randint(1, 5) * 30.0,
-                'Region': random.choice(['North', 'South', 'East', 'West']),
-                'Channel': 'Webstore'
-            }
-            # Convert to DB Schema
-            initial_data.append(map_record_to_db_schema(record))
-            
-        supabase.table(TABLE_NAME).insert(initial_data).execute()
-        print("Seeding complete.")
-        
     except Exception as e:
         print(f"Error seeding DB: {e}")
 
