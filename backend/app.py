@@ -1,9 +1,10 @@
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 from flask_cors import CORS
 import datetime
 import pandas as pd
 import transaction
 import os
+import json
 
 app = Flask(__name__)
 CORS(app)
@@ -16,7 +17,21 @@ def get_data():
     # In a real app, might want to optimize reading, but for now read CSV on request or cache
     # We'll read fresh to pick up new transactions from the generator
     if os.path.exists(transaction.CSV_FILENAME):
-        return pd.read_csv(transaction.CSV_FILENAME, parse_dates=['Timestamp'])
+        max_retries = 5
+        for i in range(max_retries):
+            try:
+                return pd.read_csv(transaction.CSV_FILENAME, parse_dates=['Timestamp'])
+            except PermissionError:
+                if i == max_retries - 1:
+                    raise
+                import time
+                time.sleep(0.1)
+            except Exception as e:
+                print(f"Error reading CSV (attempt {i+1}): {e}")
+                if i == max_retries - 1:
+                   return pd.DataFrame()
+                import time
+                time.sleep(0.1)
     return pd.DataFrame()
 
 @app.route('/api/dashboard-data', methods=['GET'])
@@ -71,6 +86,155 @@ def get_dashboard_data():
         "regions": regional_sales.to_dict(orient='records'),
         "products": product_stats.to_dict(orient='records')
     })
+
+@app.route('/api/inventory')
+def get_inventory():
+    df = get_data()
+    if df.empty:
+        return jsonify([])
+    
+    # Mock Initial Stock
+    INITIAL_STOCK = 200
+    
+    # Load Restock Data
+    RESTOCK_FILE = 'restock.json'
+    restock_data = {}
+    if os.path.exists(RESTOCK_FILE):
+        try:
+            with open(RESTOCK_FILE, 'r') as f:
+                restock_data = json.load(f)
+        except:
+            restock_data = {}
+
+    # Calculate Sold Quantity per Product
+    sold_stats = df.groupby('ProductID')['Quantity'].sum().reset_index()
+    
+    # Use the shared WEARS list from transaction.py
+    all_product_ids = transaction.WEARS
+    
+    inventory_data = []
+    
+    # Create map for quick lookup
+    sold_map = dict(zip(sold_stats['ProductID'], sold_stats['Quantity']))
+    
+    for pid in all_product_ids:
+        sold = sold_map.get(pid, 0)
+        added_stock = restock_data.get(pid, 0)
+        total_initial = INITIAL_STOCK + added_stock
+        remaining = total_initial - sold
+        
+        status = "In Stock"
+        if remaining < 20: 
+            status = "Low Stock"
+        if remaining <= 0:
+            status = "Out of Stock"
+            remaining = 0 # Sustain non-negative
+            
+        inventory_data.append({
+            "id": pid,             # Name is the ID now
+            "name": pid,           # Name is the ID now
+            "initial_stock": total_initial,
+            "sold": int(sold),
+            "remaining": int(remaining),
+            "status": status,
+            "status_color": "text-green-400" if status == "In Stock" else ("text-yellow-400" if status == "Low Stock" else "text-red-500")
+        })
+        
+    # Sort by remaining stock (Ascending: 0 -> Max) to show critical items first
+    inventory_data.sort(key=lambda x: x['remaining'])
+
+    response = jsonify(inventory_data)
+    response.headers.add("Cache-Control", "no-cache, no-store, must-revalidate")
+    return response
+
+@app.route('/api/inventory/restock', methods=['POST'])
+def restock_product():
+    data = request.json
+    product_id = data.get('product_id')
+    quantity = data.get('quantity')
+    
+    if not product_id or quantity is None:
+        return jsonify({"error": "Invalid data"}), 400
+        
+    try:
+        quantity = int(quantity)
+        if quantity <= 0:
+             return jsonify({"error": "Quantity must be positive"}), 400
+    except ValueError:
+        return jsonify({"error": "Invalid quantity format"}), 400
+
+    RESTOCK_FILE = 'restock.json'
+    restock_data = {}
+    if os.path.exists(RESTOCK_FILE):
+        try:
+            with open(RESTOCK_FILE, 'r') as f:
+                restock_data = json.load(f)
+        except:
+            restock_data = {}
+            
+    current_added = restock_data.get(product_id, 0)
+    restock_data[product_id] = current_added + quantity
+    
+    with open(RESTOCK_FILE, 'w') as f:
+        json.dump(restock_data, f)
+        
+    return jsonify({"success": True, "message": f"Restocked {product_id}"})
+
+@app.route('/api/best-sellers')
+def get_best_sellers():
+    df = get_data()
+    if df.empty:
+        return jsonify([])
+        
+    # Top 5 by Revenue
+    top_products = df.groupby('ProductID')['TotalPrice'].sum().sort_values(ascending=False).head(5).reset_index()
+    
+    result = []
+    for _, row in top_products.iterrows():
+        result.append({
+            "product_id": row['ProductID'],
+            "revenue": float(row['TotalPrice']),
+            "name": row['ProductID'] # ProductID is now the name (e.g. "Classic White T-Shirt")
+        })
+        
+    return jsonify(result)
+
+
+@app.route('/api/pipeline/status', methods=['GET', 'POST'])
+def pipeline_status():
+    STATUS_FILE = 'pipeline_status.json'
+    
+    if request.method == 'POST':
+        data = request.json
+        new_status = data.get('active', True)
+        
+        with open(STATUS_FILE, 'w') as f:
+            json.dump({"active": new_status}, f)
+            
+        return jsonify({"active": new_status, "message": "Pipeline status updated"})
+        
+    # GET request
+    if os.path.exists(STATUS_FILE):
+        try:
+            with open(STATUS_FILE, 'r') as f:
+                data = json.load(f)
+                return jsonify(data)
+        except:
+            pass
+            
+    return jsonify({"active": True}) # Default to true if file missing
+
+@app.route('/api/login', methods=['POST'])
+def login():
+    data = request.json
+    username = data.get('username')
+    password = data.get('password')
+    
+    # Hardcoded credentials for demo
+    if username == 'admin' and password == 'admin123':
+        return jsonify({"success": True, "token": "demo-token-123", "user": {"username": "admin"}})
+    
+    return jsonify({"success": False, "message": "Invalid credentials"}), 401
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)

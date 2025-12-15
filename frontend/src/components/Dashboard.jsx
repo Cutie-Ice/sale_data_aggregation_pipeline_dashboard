@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
+import { API_BASE_URL } from '../apiConfig';
+import { Link } from 'react-router-dom';
 import KPICard from './KPICard';
 import { TrendChart, ChannelChart, ProfitScatter, RegionChart } from './DashboardCharts';
-import { AlertCircle, RefreshCcw } from 'lucide-react';
+import { AlertCircle, RefreshCw, Home as HomeIcon } from 'lucide-react';
 
 const Dashboard = () => {
     const [data, setData] = useState(null);
@@ -14,7 +16,7 @@ const Dashboard = () => {
             // Check if we are in dev mode (Vite typically proxies, but for now we might hit absolute URL or proxy)
             // Assuming proxy is set up in vite.config.js OR we use absolute URL
             // Using absolute localhost for now to be safe
-            const response = await axios.get('http://127.0.0.1:5000/api/dashboard-data');
+            const response = await axios.get(`${API_BASE_URL}/api/dashboard-data`);
             setData(response.data);
             setLastUpdated(new Date());
             setLoading(false);
@@ -42,12 +44,17 @@ const Dashboard = () => {
 
                 {/* Header */}
                 <div className="flex justify-between items-center mb-8">
-                    <div>
-                        <h1 className="text-2xl font-bold text-white tracking-tight">AbiaTech Solutions: Daily Sales Performance</h1>
-                        <p className="text-muted text-sm mt-1">Live data feed • Updated {lastUpdated.toLocaleTimeString()}</p>
+                    <div className="flex items-center gap-4">
+                        <Link to="/" className="p-2 bg-surface rounded-lg text-muted hover:text-white transition-colors">
+                            <HomeIcon size={24} />
+                        </Link>
+                        <div>
+                            <h1 className="text-2xl font-bold text-white tracking-tight">AbiaTech Solutions: Daily Sales Performance</h1>
+                            <p className="text-muted text-sm mt-1">Live data feed • Updated {lastUpdated.toLocaleTimeString()}</p>
+                        </div>
                     </div>
                     <button onClick={fetchData} className="p-2 bg-surface border border-white/10 rounded-lg text-muted hover:text-white transition-colors">
-                        <RefreshCcw size={20} />
+                        <RefreshCw size={20} />
                     </button>
                 </div>
 
@@ -91,7 +98,7 @@ const Dashboard = () => {
                 {/* Row 3: Scatter, Map, Alerts */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     <div className="bg-surface p-6 rounded-xl border border-white/5 shadow-lg lg:col-span-1">
-                        <h3 className="text-lg font-semibold text-white mb-4">Product Profitability Analysis</h3>
+                        <h3 className="text-lg font-semibold text-white mb-4">Product Profitability Heatmap</h3>
                         <ProfitScatter data={data.products} />
                     </div>
                     <div className="bg-surface p-6 rounded-xl border border-white/5 shadow-lg lg:col-span-1">

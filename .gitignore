@@ -4,6 +4,7 @@ __pycache__/
 *$py.class
 venv/
 .env
+sync_to_supabase.py
 
 # Node
 node_modules/

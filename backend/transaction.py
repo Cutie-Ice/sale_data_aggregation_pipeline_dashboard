@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 import os
 import time
 import random
+import json
 
 # Configuration
 CSV_FILENAME = 'sales_transactions.csv'
@@ -13,8 +14,20 @@ MIN_PRICE = 10.0
 MAX_PRICE = 500.0
 REGIONS = ['North', 'South', 'East', 'West', 'Central']
 
+# Wears / Clothing Items
+WEARS = [
+    "Classic White T-Shirt", "Slim Fit Denim Jeans", "Oversized Hoodie", "Running Sneakers", 
+    "Leather Biker Jacket", "Baseball Cap", "Cotton Crew Socks", "Cargo Shorts", 
+    "Summer Floral Dress", "Wool Knit Sweater", "Ankle Boots", "Silk Scarf",
+    "Puffer Jacket", "Yoga Leggings", "Formal Blazer", "Chino Pants",
+    "Maxi Skirt", "Aviator Sunglasses", "Leather Belt", "Beanie Hat"
+]
+
 def generate_single_transaction(transaction_id, current_time):
-    product_id = f"p{np.random.randint(1, NUM_PRODUCTS + 1):03d}"
+    # product_id = f"p{np.random.randint(1, NUM_PRODUCTS + 1):03d}"
+    # Use real product names now
+    product_name = np.random.choice(WEARS)
+    
     quantity = np.random.randint(1, 10)
     price_per_unit = round(np.random.uniform(MIN_PRICE, MAX_PRICE), 2)
     cost_per_unit = round(price_per_unit * np.random.uniform(0.5, 0.8), 2)
@@ -26,7 +39,7 @@ def generate_single_transaction(transaction_id, current_time):
     return {
         'TransactionID': transaction_id,
         'Timestamp': current_time,
-        'ProductID': product_id,
+        'ProductID': product_name, # Using Name as ID for simplicity in this demo
         'Quantity': quantity,
         'PricePerUnit': price_per_unit,
         'CostPerUnit': cost_per_unit,
@@ -76,8 +89,20 @@ if __name__ == "__main__":
     print("Starting data generation loop...")
     try:
         while True:
+            # Check pipeline status
+            try:
+                if os.path.exists('pipeline_status.json'):
+                    with open('pipeline_status.json', 'r') as f:
+                        status_data = json.load(f)
+                        if not status_data.get('active', True):
+                            print("Pipeline is paused. Waiting...", end='\r')
+                            time.sleep(2)
+                            continue
+            except Exception as e:
+                print(f"Error reading status: {e}")
+
             df = generate_new_transaction(df)
-            print(f"Generated transaction {df['TransactionID'].max()}")
+            print(f"Generated transaction {df['TransactionID'].max()}               ")
             time.sleep(5)
     except KeyboardInterrupt:
         print("Stopped.")

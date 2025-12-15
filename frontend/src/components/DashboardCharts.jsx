@@ -1,5 +1,5 @@
 import React from 'react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, ScatterChart, Scatter, ZAxis, Legend, AreaChart, Area } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, ScatterChart, Scatter, ZAxis, Legend, AreaChart, Area, PieChart, Pie, Cell, Treemap } from 'recharts';
 
 export const TrendChart = ({ data }) => {
     return (
@@ -51,6 +51,51 @@ export const ChannelChart = ({ data }) => {
     );
 };
 
+const CustomTreemapContent = (props) => {
+    const { root, depth, x, y, width, height, index, payload, colors, rank, name } = props;
+
+    return (
+        <g>
+            <rect
+                x={x}
+                y={y}
+                width={width}
+                height={height}
+                style={{
+                    fill: payload.Margin > 20 ? '#10b981' : payload.Margin > 10 ? '#f59e0b' : '#ef4444',
+                    stroke: '#1e293b',
+                    strokeWidth: 2,
+                    strokeOpacity: 1,
+                }}
+            />
+            {width > 30 && height > 30 && (
+                <text
+                    x={x + width / 2}
+                    y={y + height / 2}
+                    textAnchor="middle"
+                    fill="#fff"
+                    fontSize={10}
+                    fontWeight="bold"
+                >
+                    {name}
+                </text>
+            )}
+            {width > 30 && height > 30 && (
+                <text
+                    x={x + width / 2}
+                    y={y + height / 2 + 12}
+                    textAnchor="middle"
+                    fill="#fff"
+                    fontSize={8}
+                    fillOpacity={0.8}
+                >
+                    {payload.Margin.toFixed(1)}%
+                </text>
+            )}
+        </g>
+    );
+};
+
 export const ProfitScatter = ({ data }) => {
     return (
         <div className="h-64 w-full">
@@ -69,20 +114,32 @@ export const ProfitScatter = ({ data }) => {
 }
 
 export const RegionChart = ({ data }) => {
-    // Using a Bar Chart turned sideways or similar for Regions since we don't have a map library handy
+    const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
+
     return (
         <div className="h-64 w-full">
             <ResponsiveContainer width="100%" height="100%">
-                <BarChart layout="vertical" data={data}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#334155" horizontal={true} vertical={false} />
-                    <XAxis type="number" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} hide />
-                    <YAxis dataKey="Region" type="category" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} width={80} />
+                <PieChart>
+                    <Pie
+                        data={data}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={60}
+                        outerRadius={80}
+                        paddingAngle={5}
+                        dataKey="TotalPrice"
+                        nameKey="Region"
+                    >
+                        {data.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        ))}
+                    </Pie>
                     <Tooltip
-                        cursor={{ fill: '#334155', opacity: 0.2 }}
                         contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', color: '#f1f5f9' }}
+                        formatter={(value) => `$${value.toLocaleString()}`}
                     />
-                    <Bar dataKey="TotalPrice" name="Revenue" fill="#2dd4bf" radius={[0, 4, 4, 0]} barSize={20} />
-                </BarChart>
+                    <Legend verticalAlign="bottom" height={36} iconType="circle" />
+                </PieChart>
             </ResponsiveContainer>
         </div>
     );
