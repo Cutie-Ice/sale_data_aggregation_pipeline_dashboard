@@ -51,8 +51,20 @@ def get_dashboard_data():
     product_stats['Margin'] = (product_stats['Totalprofit'] / product_stats['TotalSales'] * 100).fillna(0)
 
     # Pipeline Status
-    last_transaction_time = df['Timestamp'].max()
-    time_since_last = (datetime.datetime.now() - last_transaction_time).total_seconds()
+    # Sort by timestamp
+    df = df.sort_values(by='Timestamp', ascending=False)
+    
+    # Calculate time since last transaction
+    last_transaction_time = df.iloc[0]['Timestamp']
+    
+    # Supabase returns TZ-aware, so we must make now() TZ-aware or strip TZ
+    now = datetime.datetime.now()
+    if last_transaction_time.tzinfo is not None:
+         # Best practice: Convert 'now' to match the TZ or use UTC
+         # For simplicity, let's strip TZ from the data (assuming data is roughly correct/UTC)
+         last_transaction_time = last_transaction_time.replace(tzinfo=None)
+         
+    time_since_last = (now - last_transaction_time).total_seconds()
     pipeline_status = "Active" if time_since_last < 30 else "Inactive"
 
     return jsonify({
