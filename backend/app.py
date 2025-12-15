@@ -10,29 +10,12 @@ app = Flask(__name__)
 CORS(app)
 
 # Ensure data is initialized
-if not os.path.exists(transaction.CSV_FILENAME):
-    transaction.initialize_data()
+
+
+import db_utils
 
 def get_data():
-    # In a real app, might want to optimize reading, but for now read CSV on request or cache
-    # We'll read fresh to pick up new transactions from the generator
-    if os.path.exists(transaction.CSV_FILENAME):
-        max_retries = 5
-        for i in range(max_retries):
-            try:
-                return pd.read_csv(transaction.CSV_FILENAME, parse_dates=['Timestamp'])
-            except PermissionError:
-                if i == max_retries - 1:
-                    raise
-                import time
-                time.sleep(0.1)
-            except Exception as e:
-                print(f"Error reading CSV (attempt {i+1}): {e}")
-                if i == max_retries - 1:
-                   return pd.DataFrame()
-                import time
-                time.sleep(0.1)
-    return pd.DataFrame()
+    return db_utils.fetch_all_transactions()
 
 @app.route('/api/dashboard-data', methods=['GET'])
 def get_dashboard_data():

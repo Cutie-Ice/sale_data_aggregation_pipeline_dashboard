@@ -78,9 +78,13 @@ def generate_new_transaction(df):
     
     updated_df = pd.concat([df, new_df_row], ignore_index=True)
     
+    import db_utils
     # Keep file size manageable? For now just append.
     # In a real app we might append to file without rewriting everything, but for this demo rewriting is safer for concurrency if low volume.
     updated_df.to_csv(CSV_FILENAME, index=False)
+    
+    # Sync to Supabase
+    db_utils.insert_transaction(new_transaction)
     
     return updated_df
 
