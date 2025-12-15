@@ -3,4 +3,12 @@
 // For local development, keep it as 'http://127.0.0.1:5000'
 // For WhoGoHost, change it to your subdomain, e.g., 'https://api.yourdomain.ng'
 
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:5000';
+const isLocalhost = Boolean(
+    window.location.hostname === 'localhost' ||
+    window.location.hostname === '[::1]' ||
+    window.location.hostname.match(
+        /^127(?:\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)){3}$/
+    )
+);
+
+export const API_BASE_URL = isLocalhost ? 'http://127.0.0.1:5000' : '';
