@@ -8,7 +8,7 @@
 ## 🚀 The Problem
 Retail businesses often struggle with unstable internet connections, leading to data gaps and operational downtime. Traditional cloud-only dashboards fail when the network goes down.
 
-## 💡 The Solution
+## 💡 The Solution     
 **Sales Intelligence Hub** bridges the gap. It operates locally for 100% uptime and seamlessly syncs to the cloud when connectivity returns. It's the best of both worlds: the reliability of desktop software with the accessibility of the cloud.
 
 ---

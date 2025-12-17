@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "5000:5000"
+    environment:
+      - FLASK_ENV=production
+    volumes:
+      - ./backend/sales_transactions.csv:/app/sales_transactions.csv
+      - ./backend/pipeline_status.json:/app/pipeline_status.json
+      - ./backend/restock.json:/app/restock.json
+    restart: always
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+    restart: always

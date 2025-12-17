@@ -49,7 +49,7 @@ const Dashboard = () => {
                             <HomeIcon size={24} />
                         </Link>
                         <div>
-                            <h1 className="text-2xl font-bold text-white tracking-tight">AbiaTech Solutions: Daily Sales Performance</h1>
+                            <h1 className="text-2xl font-bold text-white tracking-tight">Daily Sales Performance</h1>
                             <p className="text-muted text-sm mt-1">Live data feed • Updated {lastUpdated.toLocaleTimeString()}</p>
                         </div>
                     </div>

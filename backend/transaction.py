@@ -37,16 +37,16 @@ def generate_single_transaction(transaction_id, current_time):
     channel = np.random.choice(['Webstore', 'Shop A', 'Shop B'])
 
     return {
-        'TransactionID': transaction_id,
+        'TransactionID': int(transaction_id),
         'Timestamp': current_time,
-        'ProductID': product_name, # Using Name as ID for simplicity in this demo
-        'Quantity': quantity,
-        'PricePerUnit': price_per_unit,
-        'CostPerUnit': cost_per_unit,
-        'TotalPrice': total_price,
-        'TotalCost': total_cost,
-        'Region': region,
-        'Channel': channel
+        'ProductID': str(product_name), # Using Name as ID for simplicity in this demo
+        'Quantity': int(quantity),
+        'PricePerUnit': float(price_per_unit),
+        'CostPerUnit': float(cost_per_unit),
+        'TotalPrice': float(total_price),
+        'TotalCost': float(total_cost),
+        'Region': str(region),
+        'Channel': str(channel)
     }
 
 def initialize_data():

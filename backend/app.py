@@ -15,6 +15,7 @@ CORS(app)
 import db_utils
 
 def get_data():
+    """Fetches data from Supabase via db_utils."""
     return db_utils.fetch_all_transactions()
 
 @app.route('/api/dashboard-data', methods=['GET'])
@@ -65,7 +66,9 @@ def get_dashboard_data():
          last_transaction_time = last_transaction_time.replace(tzinfo=None)
          
     time_since_last = (now - last_transaction_time).total_seconds()
-    pipeline_status = "Active" if time_since_last < 30 else "Inactive"
+    # pipeline_status is now fetched from DB
+    pipeline_active = db_utils.get_pipeline_status()
+    pipeline_status_text = "Active" if pipeline_active else "Inactive"
 
     return jsonify({
         "kpi": {
@@ -74,7 +77,7 @@ def get_dashboard_data():
             "profit_margin": profit_margin,
             "data_quality_alert_status": "Operational", # Mock
             "data_quality_alerts": 0,
-            "pipeline_status": pipeline_status
+            "pipeline_status": pipeline_status_text
         },
         "trends": daily_sales.to_dict(orient='records'),
         "channels": channel_sales.to_dict(orient='records'),
@@ -88,18 +91,11 @@ def get_inventory():
     if df.empty:
         return jsonify([])
     
-    # Mock Initial Stock
+    # Initial Stock Base
     INITIAL_STOCK = 200
     
-    # Load Restock Data
-    RESTOCK_FILE = 'restock.json'
-    restock_data = {}
-    if os.path.exists(RESTOCK_FILE):
-        try:
-            with open(RESTOCK_FILE, 'r') as f:
-                restock_data = json.load(f)
-        except:
-            restock_data = {}
+    # Load Restock Data from Supabase
+    restock_data = db_utils.get_restock_data()
 
     # Calculate Sold Quantity per Product
     sold_stats = df.groupby('ProductID')['Quantity'].sum().reset_index()
@@ -119,7 +115,7 @@ def get_inventory():
         remaining = total_initial - sold
         
         status = "In Stock"
-        if remaining < 20: 
+        if remaining < 50: 
             status = "Low Stock"
         if remaining <= 0:
             status = "Out of Stock"
@@ -158,22 +154,22 @@ def restock_product():
     except ValueError:
         return jsonify({"error": "Invalid quantity format"}), 400
 
-    RESTOCK_FILE = 'restock.json'
-    restock_data = {}
-    if os.path.exists(RESTOCK_FILE):
+    if isinstance(quantity, str):
         try:
-            with open(RESTOCK_FILE, 'r') as f:
-                restock_data = json.load(f)
-        except:
-            restock_data = {}
-            
-    current_added = restock_data.get(product_id, 0)
-    restock_data[product_id] = current_added + quantity
+            quantity = int(quantity)
+        except ValueError:
+             return jsonify({"error": "Invalid quantity format"}), 400
+             
+    if quantity <= 0:
+         return jsonify({"error": "Quantity must be positive"}), 400
+
+    # Add to Supabase
+    success = db_utils.add_restock_record(product_id, quantity)
     
-    with open(RESTOCK_FILE, 'w') as f:
-        json.dump(restock_data, f)
-        
-    return jsonify({"success": True, "message": f"Restocked {product_id}"})
+    if success:
+        return jsonify({"success": True, "message": f"Restocked {product_id}"})
+    else:
+        return jsonify({"error": "Failed to log restock"}), 500
 
 @app.route('/api/best-sellers')
 def get_best_sellers():
@@ -197,27 +193,19 @@ def get_best_sellers():
 
 @app.route('/api/pipeline/status', methods=['GET', 'POST'])
 def pipeline_status():
-    STATUS_FILE = 'pipeline_status.json'
-    
     if request.method == 'POST':
         data = request.json
         new_status = data.get('active', True)
         
-        with open(STATUS_FILE, 'w') as f:
-            json.dump({"active": new_status}, f)
-            
-        return jsonify({"active": new_status, "message": "Pipeline status updated"})
+        success = db_utils.set_pipeline_status(new_status)
+        if success:
+            return jsonify({"active": new_status, "message": "Pipeline status updated"})
+        else:
+            return jsonify({"error": "Failed to update status"}), 500
         
     # GET request
-    if os.path.exists(STATUS_FILE):
-        try:
-            with open(STATUS_FILE, 'r') as f:
-                data = json.load(f)
-                return jsonify(data)
-        except:
-            pass
-            
-    return jsonify({"active": True}) # Default to true if file missing
+    active = db_utils.get_pipeline_status()
+    return jsonify({"active": active})
 
 @app.route('/api/login', methods=['POST'])
 def login():

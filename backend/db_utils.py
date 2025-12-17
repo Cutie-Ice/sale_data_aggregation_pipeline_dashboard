@@ -1,19 +1,33 @@
-
 import os
 import time
 import pandas as pd
-from supabase import create_client, Client
+try:
+    from supabase import create_client, Client
+except ImportError:
+    create_client = None
+    Client = None
 import random
 from datetime import datetime, timedelta
 
 # Configuration
-SUPABASE_URL = "https://nqhevfseowjpdtzibgew.supabase.co"
-# Using the provided key
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5xaGV2ZnNlb3dqcGR0emliZ2V3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUyNjM2NjksImV4cCI6MjA4MDgzOTY2OX0.OyyxwbGTOLwYXMMjQKy2jmZA3GYZzyLXAapO9sN-3CA"
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://nqhevfseowjpdtzibgew.supabase.co")
+# Using the provided key or env var. 
+# NOTE: In production/Vercel, you MUST set message SUPABASE_KEY in environment variables.
+# The key below is a fallback (Public Anon Key provided by user)
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "sb_publishable_bysiJIf5J3EiN0RHg0Y7xA_-4HZbncQ")
+
 TABLE_NAME = "sales_data"
+RESTOCK_TABLE = "restock_logs"
+PIPELINE_TABLE = "pipeline_status"
 
 def get_supabase_client():
-    return create_client(SUPABASE_URL, SUPABASE_KEY)
+    if create_client:
+        try:
+            return create_client(SUPABASE_URL, SUPABASE_KEY)
+        except Exception as e:
+            print(f"Error creating Supabase client: {e}")
+            return None
+    return None
 
 def map_record_to_db_schema(record):
     """Maps internal PascalCase record to DB snake_case schema."""
@@ -145,4 +159,68 @@ def insert_transaction(record):
         return True
     except Exception as e:
         print(f"Error inserting transaction: {e}")
+        return False
+
+def add_restock_record(product_id, quantity):
+    """Logs a restock event to Supabase."""
+    try:
+        supabase = get_supabase_client()
+        data = {
+            "product_id": product_id,
+            "quantity": quantity,
+            "timestamp": datetime.now().isoformat()
+        }
+        supabase.table(RESTOCK_TABLE).insert(data).execute()
+        return True
+    except Exception as e:
+        print(f"Error adding restock record: {e}")
+        return False
+
+def get_restock_data():
+    """Aggregates total restocked quantity per product from logs."""
+    try:
+        supabase = get_supabase_client()
+        # Fetch all restock logs
+        response = supabase.table(RESTOCK_TABLE).select("*").execute()
+        data = response.data
+        
+        restock_map = {}
+        for row in data:
+            pid = row.get('product_id')
+            qty = row.get('quantity', 0)
+            restock_map[pid] = restock_map.get(pid, 0) + qty
+            
+        return restock_map
+    except Exception as e:
+        print(f"Error fetching restock data: {e}")
+        return {}
+
+def get_pipeline_status():
+    """Gets the active status of the pipeline."""
+    try:
+        supabase = get_supabase_client()
+        # We assume ID 1 is the status row
+        response = supabase.table(PIPELINE_TABLE).select("active").eq("id", 1).single().execute()
+        if response.data:
+            return response.data.get('active', True)
+        return True
+    except Exception as e:
+        print(f"Error getting pipeline status: {e}")
+        # Default to True if table missing or error, so it doesn't break
+        return True
+
+def set_pipeline_status(active):
+    """Updates the pipeline status."""
+    try:
+        supabase = get_supabase_client()
+        # Upsert ID 1
+        data = {
+            "id": 1,
+            "active": active,
+            "updated_at": datetime.now().isoformat()
+        }
+        supabase.table(PIPELINE_TABLE).upsert(data).execute()
+        return True
+    except Exception as e:
+        print(f"Error setting pipeline status: {e}")
         return False

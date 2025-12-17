@@ -1,4 +1,4 @@
 from backend.app import app
 
-# This is the Vercel entrypoint
-# It imports the authenticated 'app' from backend/app.py
+# Vercel looks for 'app' variable by default
+# This file serves as the serverless function entry point

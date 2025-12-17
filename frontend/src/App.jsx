@@ -15,9 +15,17 @@ function App() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/login" element={<Login />} />
-          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/dashboard" element={
+            <ProtectedRoute>
+              <Dashboard />
+            </ProtectedRoute>
+          } />
 
-          <Route path="/strategy" element={<StrategyHub />} />
+          <Route path="/strategy" element={
+            <ProtectedRoute>
+              <StrategyHub />
+            </ProtectedRoute>
+          } />
 
           <Route path="/inventory" element={
             <ProtectedRoute>
